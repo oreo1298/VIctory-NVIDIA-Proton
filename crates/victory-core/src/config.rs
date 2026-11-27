@@ -78,10 +78,21 @@ impl Config {
         source: Option<PathBuf>,
         env: impl Fn(&str) -> Option<std::ffi::OsString>,
     ) -> Result<Self> {
-        let env_path = |k: &str| env(k).filter(|v| !v.is_empty()).map(PathBuf::from);
+        // Under Wine an absolute Unix path (from the environment or from
+        // victory.toml, which a Linux user may write by hand) is turned into
+        // its `Z:` form, so it means the same whatever the current drive.
+        let dos = |p: PathBuf| crate::wine::windows_path(&p);
+        let env_path = |k: &str| env(k).filter(|v| !v.is_empty()).map(PathBuf::from).map(dos);
+        let file = FilePaths {
+            game_dir: file.game_dir.map(dos),
+            cache_dir: file.cache_dir.map(dos),
+            data_dir: file.data_dir.map(dos),
+            test_titles: file.test_titles.into_iter().map(dos).collect(),
+        };
         let test_titles = match env("VICTORY_TEST_TITLES") {
             Some(v) if !v.is_empty() => std::env::split_paths(&v)
                 .filter(|p| !p.as_os_str().is_empty())
+                .map(dos)
                 .collect(),
             _ => file.test_titles,
         };
@@ -138,7 +149,7 @@ fn subdir(root: &Path, sub: &str) -> Result<PathBuf> {
 /// downloads) when `VICTORY_HOME` names one: for a full C: drive, e.g.
 /// `setx VICTORY_HOME D:\victory`. Else `%LOCALAPPDATA%\victory`.
 pub fn home_override() -> Option<PathBuf> {
-    std::env::var_os("VICTORY_HOME").filter(|v| !v.is_empty()).map(PathBuf::from)
+    std::env::var_os("VICTORY_HOME").filter(|v| !v.is_empty()).map(PathBuf::from).map(|p| crate::wine::windows_path(&p))
 }
 
 /// `%LOCALAPPDATA%/victory/<name>` (elsewhere the XDG or home cache), or
