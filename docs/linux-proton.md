@@ -68,9 +68,9 @@ It builds and its CPU-only commands run under Wine, but it is not the supported 
    export VICTORY_STREAMLINE_DIR=$HOME/sdk/streamline-sdk-v2.14.16/bin/x64
    ```
 
-   Or unpack it into `nvidia-sdk/Streamline` in the repository folder. That folder is
-   git-ignored, and the launcher looks there. DLSS under Proton needs NVAPI, which the launcher
-   turns on.
+   Or unpack the archive anywhere under `nvidia-sdk/` in the repository folder (git-ignored).
+   The launcher finds `bin/x64/sl.interposer.dll` there by itself, skipping the SDK's
+   development build. DLSS under Proton needs NVAPI, which the launcher turns on.
 3. **Check the helper shaders once per Proton version:**
 
    ```bash
@@ -79,7 +79,8 @@ It builds and its CPU-only commands run under Wine, but it is not the supported 
 
    See [Helper shaders and d3dcompiler_47](#helper-shaders-and-d3dcompiler_47). The launcher
    passes `hlsl-check`, `upscaler-check`, `config`, `shaders` and `warm` on to `victory.exe`,
-   with the same runner and environment as a run.
+   with the same runner and environment as a run, and `winetricks` to winetricks in the same
+   prefix.
 
 ## Play
 
@@ -97,6 +98,7 @@ scripts/play-nvidia.sh --exe ~/Games/MyDump/game_scarlett_master.exe
 | `--victory PATH` | another `victory.exe` (e.g. a release download); `VICTORY_EXE` does the same |
 | `--prefix DIR` | the Proton prefix (default `~/.local/share/victory/proton`; never inside the repository) |
 | `--dry-run` | print the runner, the arguments and the environment, and run nothing |
+| `winetricks VERB...` | winetricks in the game's prefix, with the same Proton (not from Steam: use protontricks there) |
 
 How it starts `victory.exe`, the first that is there:
 
@@ -199,16 +201,12 @@ system's HLSL compiler is Wine's own `d3dcompiler_47`, which is vkd3d-shader's c
   switched off. For the indirect clamp that means "no argument clamp: indirect execution dropped",
   and the game draws almost nothing.
 
-If `hlsl-check` shows any `NO`, put Microsoft's `d3dcompiler_47.dll` into the prefix:
+If `hlsl-check` shows any `NO`, put Microsoft's `d3dcompiler_47.dll` into the prefix. The
+launcher runs winetricks with the same runner, Proton and prefix as the game (umu-run, or the
+`$PROTON` folder's own wine):
 
 ```bash
-GAMEID=umu-victory WINEPREFIX=$HOME/.local/share/victory/proton umu-run winetricks d3dcompiler_47
-```
-
-With `$PROTON` and system winetricks:
-
-```bash
-WINE="$PROTON/files/bin/wine" WINEPREFIX=$HOME/.local/share/victory/proton/pfx winetricks d3dcompiler_47
+scripts/play-nvidia.sh winetricks d3dcompiler_47
 ```
 
 From Steam, `protontricks <id> d3dcompiler_47` (`protontricks -l` lists the shortcut's id).

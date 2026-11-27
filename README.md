@@ -345,20 +345,153 @@ delete that file to go back to them. Full screen: start the game, then run
 ## Linux (Proton, NVIDIA)
 
 The same Windows `victory.exe` runs on Linux through Proton (vkd3d-proton, DXVK, dxvk-nvapi). It
-is not a native port, and Windows behaves as before. It is written for proton-cachyos or
-GE-Proton with the proprietary NVIDIA driver, and is **untested on a GPU so far**. Build and
-start it from Linux:
+is not a native port, and Windows behaves as before. It is written for CachyOS or Arch with an
+NVIDIA RTX card and **has not been tested on a GPU yet**. Please report what you find (logs:
+step 11). The details are in [docs/linux-proton.md](docs/linux-proton.md); what differs under
+Wine, and why, is in [docs/proton-audit.md](docs/proton-audit.md).
+
+### Install on CachyOS or Arch Linux
+
+Every command runs in a normal terminal (bash or fish, CachyOS's default), not as root unless it
+starts with `sudo`. Your own dump of the title goes in a folder **outside** this repository, e.g.
+`~/Games/MyDump` with `game_scarlett_master.exe` in it.
+
+**1. The NVIDIA driver.** CachyOS installs it for you. Check that it is running:
+
+```bash
+nvidia-smi
+```
+
+On plain Arch, if that fails: enable the `[multilib]` repository in `/etc/pacman.conf` (the
+[Arch wiki](https://wiki.archlinux.org/title/Official_repositories#multilib) shows how), install
+the driver, then reboot:
+
+```bash
+sudo pacman -S --needed nvidia-open nvidia-utils lib32-nvidia-utils
+```
+
+**2. The packages.** On CachyOS (this brings proton-cachyos, umu-launcher and winetricks):
+
+```bash
+sudo pacman -S --needed cachyos-gaming-meta git rustup clang lld llvm unzip
+```
+
+On Arch (umu-launcher downloads a Proton by itself the first time):
+
+```bash
+sudo pacman -S --needed umu-launcher winetricks git rustup clang lld llvm unzip
+```
+
+**3. This repository and its Rust toolchain.** Then stay in the `VIctory-NVIDIA-Proton` folder
+for every step below.
+
+```bash
+git clone https://github.com/oreo1298/VIctory-NVIDIA-Proton
+```
+
+```bash
+cd VIctory-NVIDIA-Proton
+```
+
+```bash
+rustup toolchain install
+```
+
+```bash
+cargo install cargo-xwin --locked
+```
+
+**4. Build** (a few minutes; the first build also downloads Microsoft's build libraries, once):
 
 ```bash
 scripts/build-linux.sh
+```
+
+**5. Check the memory-map limit.** This should print `1048576` or more (the Arch and CachyOS
+default):
+
+```bash
+cat /proc/sys/vm/max_map_count
+```
+
+If it prints less, raise it for good:
+
+```bash
+echo 'vm.max_map_count = 1048576' | sudo tee /etc/sysctl.d/80-victory.conf
+```
+
+```bash
+sudo sysctl --system
+```
+
+**6. Check that Proton can build the layer's own shaders.** The first run sets up the Proton
+prefix (in `~/.local/share/victory/proton`) and downloads umu's Steam Linux Runtime (on Arch a
+Proton too), which takes a few minutes, once:
+
+```bash
+scripts/play-nvidia.sh hlsl-check
+```
+
+If any line shows `NO` under "compiles", install Microsoft's shader compiler into the same prefix
+(winetricks downloads it), then run `hlsl-check` again:
+
+```bash
+scripts/play-nvidia.sh winetricks d3dcompiler_47
+```
+
+**7. DLSS (optional, recommended).** NVIDIA's files are NVIDIA's, under NVIDIA's licence, and
+not part of this repository. Download Streamline (about 263 MB) and unpack it into `nvidia-sdk`
+in this folder; that folder is git-ignored, and the launcher finds the files there by itself:
+
+```bash
+curl -L -o /tmp/streamline.zip https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.14.16/streamline-sdk-v2.14.16.zip
+```
+
+```bash
+unzip -q /tmp/streamline.zip -d nvidia-sdk/Streamline
+```
+
+**8. Translate the shaders ahead** (a few minutes; again after every update). Put your own dump's
+folder in place of `~/Games/MyDump`:
+
+```bash
+scripts/play-nvidia.sh shaders ~/Games/MyDump
+```
+
+**9. Play:**
+
+```bash
 scripts/play-nvidia.sh --exe ~/Games/MyDump/game_scarlett_master.exe
 ```
 
-The launcher turns on NVAPI and the driver's Smooth Motion (`--no-smooth-motion` leaves it off)
-and handles the F1 menu's restarts. `scripts/play-nvidia.sh hlsl-check` tells whether Proton's
-shader compiler builds the layer's helper shaders. Requirements, Steam set-up, caches and
-troubleshooting are in [docs/linux-proton.md](docs/linux-proton.md); what differs under Wine,
-and why, is in [docs/proton-audit.md](docs/proton-audit.md).
+F1 is the settings menu, F3 the stats panel. The driver's Smooth Motion (RTX 40 and later) is on.
+Add `--no-smooth-motion` to turn it off, or `--series-s` for the Series S profile. After the
+first session, make the pipelines it used ahead, so the next start stutters less:
+
+```bash
+scripts/play-nvidia.sh warm --used
+```
+
+**10. Updating:** fetch the new version and build again, then repeat steps 8 and 9 (and
+`warm --used`). After a Proton update, repeat step 6 too:
+
+```bash
+git pull
+```
+
+```bash
+scripts/build-linux.sh
+```
+
+**11. If something goes wrong,** attach these to the report:
+
+- the launcher's log, from `~/.local/state/victory/logs/` (the newest `victory-nvidia-*.log`);
+- the crash log, `~/.local/share/victory/proton/drive_c/users/steamuser/AppData/Local/VIctory/data/7952987A/crashes.log`;
+- what `scripts/play-nvidia.sh hlsl-check` prints.
+
+Run with `--debug` for Proton's, vkd3d-proton's and DXVK's own logs (they go to the same
+folder). Starting it from Steam as a non-Steam game, every launcher option and a troubleshooting
+table are in [docs/linux-proton.md](docs/linux-proton.md).
 
 ## How it works, and the findings
 
