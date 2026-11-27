@@ -43,6 +43,8 @@ need() {
         exit 1
     fi
 }
+# Where `cargo install` puts cargo-xwin, whether or not the shell has it on its PATH.
+PATH="$HOME/.cargo/bin:$PATH"
 need cargo "install Rust with rustup (https://rustup.rs)"
 need rustup "install Rust with rustup (https://rustup.rs); the toolchain is pinned in rust-toolchain.toml"
 

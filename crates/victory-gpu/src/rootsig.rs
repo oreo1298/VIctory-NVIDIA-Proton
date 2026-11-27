@@ -956,7 +956,7 @@ pub fn check(device: bool) -> Vec<String> {
             "{failed} helper shaders do not compile with this system's HLSL compiler{}",
             if victory_core::wine::is_wine() {
                 " (Wine's builtin d3dcompiler_47). Microsoft's d3dcompiler_47.dll in the prefix fixes it: \
-                 `protontricks <appid> d3dcompiler_47`, or `WINEPREFIX=<prefix>/pfx winetricks d3dcompiler_47` \
+                 `scripts/play-nvidia.sh winetricks d3dcompiler_47`, or from Steam `protontricks <id> d3dcompiler_47` \
                  (docs/linux-proton.md)."
             } else {
                 "."

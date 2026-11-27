@@ -11,6 +11,7 @@
 #   scripts/play-nvidia.sh warm --used                     make the pipelines earlier runs drew with (once a build)
 #   scripts/play-nvidia.sh hlsl-check                      can this Proton compile the layer's helper shaders?
 #                                    (also upscaler-check [--device] and config, passed on to victory.exe as these)
+#   scripts/play-nvidia.sh winetricks d3dcompiler_47      winetricks in the same prefix, with the same Proton
 #   scripts/play-nvidia.sh --exe ... -- %command%          from Steam's launch options (non-Steam game; see the doc)
 #
 # Options (as the PowerShell launcher's): --series-x (the default) | --series-s, --res 1440|1080to1440|4k,
@@ -41,7 +42,7 @@ die() {
     exit 1
 }
 usage() {
-    sed -n '2,32p' "$script" | sed 's/^# \{0,1\}//'
+    sed -n '2,33p' "$script" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
@@ -123,7 +124,7 @@ while (($#)); do
         --dry-run) dry_run=1 ;;
         --prefix) value "$@"; prefix=$2; shift ;;
         -h | --help) usage 0 ;;
-        shaders | warm | hlsl-check | upscaler-check | config)
+        shaders | warm | hlsl-check | upscaler-check | config | winetricks)
             command=$1
             shift
             pass=("$@")
@@ -207,6 +208,11 @@ fi
 if [[ $dlss != off ]]; then
     # NVIDIA's files: where VICTORY_STREAMLINE_DIR says, else where Get-NVIDIA-DLSS.cmd puts them.
     sl=${VICTORY_STREAMLINE_DIR:-$repo/nvidia-sdk/Streamline/bin/x64}
+    # Or wherever NVIDIA's SDK was unpacked under nvidia-sdk/ (not its development build).
+    if [[ -z ${VICTORY_STREAMLINE_DIR:-} && ! -f $sl/sl.interposer.dll && -d $repo/nvidia-sdk ]]; then
+        found=$(find "$repo/nvidia-sdk" -path '*/bin/x64/sl.interposer.dll' ! -path '*development*' -print -quit 2>/dev/null)
+        [[ -n $found ]] && sl=$(dirname "$found")
+    fi
     if [[ -f $(unix "$sl")/sl.interposer.dll ]]; then
         s[VICTORY_DLSS]=1
         s[VICTORY_DLSS_MODE]=$dlss
@@ -323,8 +329,8 @@ if ((max_maps < 1048576)); then
     say "  sudo sysctl -w vm.max_map_count=1048576   (and in /etc/sysctl.d/ to keep it)"
 fi
 
-# The victory.exe to start (not needed from Steam: its shortcut names it).
-if ((${#steam[@]} == 0)); then
+# The victory.exe to start (not needed from Steam, whose shortcut names it, nor for winetricks).
+if ((${#steam[@]} == 0)) && [[ $command != winetricks ]]; then
     if [[ -z $victory ]]; then
         victory=${VICTORY_EXE:-$repo/target/x86_64-pc-windows-msvc/$build/victory.exe}
     fi
@@ -342,6 +348,9 @@ if [[ $command == run ]]; then
     [[ -f $exe ]] || die "no $exe"
     exe=$(realpath -- "$exe")
     args=(run "$(dos "$exe")" --console "$console" --execute)
+elif [[ $command == winetricks ]]; then
+    command -v winetricks >/dev/null 2>&1 || die "winetricks is not installed (sudo pacman -S winetricks)"
+    args=("${pass[@]}")
 else
     args=("$command")
     for a in "${pass[@]}"; do
@@ -366,6 +375,7 @@ proton=${PROTON:-}
 runner=()
 how=""
 if ((${#steam[@]})); then
+    [[ $command != winetricks ]] || die "from Steam, use protontricks (protontricks -l lists the shortcut's id)"
     how="Steam's command"
     runner=("${steam[@]}")
 elif command -v umu-run >/dev/null 2>&1; then
@@ -376,6 +386,7 @@ elif command -v umu-run >/dev/null 2>&1; then
     export GAMEID=${GAMEID:-umu-victory} WINEPREFIX=$prefix
     how="umu-run (PROTONPATH=${PROTONPATH:-the default of umu})"
     runner=(umu-run "$victory")
+    [[ $command == winetricks ]] && runner=(umu-run winetricks)
 else
     [[ -n $proton ]] || proton=$(find_proton)
     if [[ -n $proton ]]; then
@@ -389,12 +400,17 @@ else
         fi
         how="Proton $proton"
         runner=("$proton/proton" run "$victory")
+        if [[ $command == winetricks ]]; then
+            [[ -d $prefix/pfx ]] || die "no prefix yet in $prefix: start the game (or hlsl-check) once first"
+            runner=(env "WINE=$proton/files/bin/wine" "WINESERVER=$proton/files/bin/wineserver" "WINEPREFIX=$prefix/pfx" winetricks)
+        fi
     elif command -v wine >/dev/null 2>&1; then
         say "No umu-run and no Proton (set PROTON=/path/to/proton-dir): plain wine. Direct3D 12 then needs"
         say "vkd3d-proton, DXGI needs DXVK and NVAPI needs dxvk-nvapi, installed into WINEPREFIX=$prefix."
         export WINEPREFIX=$prefix
         how="wine (WINEPREFIX=$prefix)"
         runner=(wine "$victory")
+        [[ $command == winetricks ]] && runner=(winetricks)
     else
         die "nothing to run victory.exe with: install umu-launcher, set PROTON, or install wine"
     fi
