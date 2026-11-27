@@ -342,6 +342,24 @@ delete that file to go back to them. Full screen: start the game, then run
 `.\scripts\fullscreen.ps1` in another window. Logs go to
 `%LOCALAPPDATA%\victory\logs`, saves to `%LOCALAPPDATA%\victory\data`.
 
+## Linux (Proton, NVIDIA)
+
+The same Windows `victory.exe` runs on Linux through Proton (vkd3d-proton, DXVK, dxvk-nvapi). It
+is not a native port, and Windows behaves as before. It is written for proton-cachyos or
+GE-Proton with the proprietary NVIDIA driver, and is **untested on a GPU so far**. Build and
+start it from Linux:
+
+```bash
+scripts/build-linux.sh
+scripts/play-nvidia.sh --exe ~/Games/MyDump/game_scarlett_master.exe
+```
+
+The launcher turns on NVAPI and the driver's Smooth Motion (`--no-smooth-motion` leaves it off)
+and handles the F1 menu's restarts. `scripts/play-nvidia.sh hlsl-check` tells whether Proton's
+shader compiler builds the layer's helper shaders. Requirements, Steam set-up, caches and
+troubleshooting are in [docs/linux-proton.md](docs/linux-proton.md); what differs under Wine,
+and why, is in [docs/proton-audit.md](docs/proton-audit.md).
+
 ## How it works, and the findings
 
 - [docs/README-foxhound.md](docs/README-foxhound.md): foxhound's own README
@@ -353,6 +371,8 @@ delete that file to go back to them. Full screen: start the game, then run
   and the light estimate.
 - [docs/asset-policy.md](docs/asset-policy.md): what may and may not be in this
   repository.
+- [docs/linux-proton.md](docs/linux-proton.md) and
+  [docs/proton-audit.md](docs/proton-audit.md): Linux with Proton.
 
 ## Credits
 
