@@ -43,7 +43,7 @@ use crate::host::{HostList, host, transition};
 pub(crate) mod batch;
 pub(crate) mod merge;
 
-const SOURCE: &str = r#"
+pub(crate) const SOURCE: &str = r#"
 #define RS "RootConstants(num32BitConstants=6, b0), SRV(t0), SRV(t1), UAV(u0), UAV(u1)"
 cbuffer Record : register(b0) {
     uint kind;
@@ -282,16 +282,17 @@ fn widest(amd: bool) -> u32 {
     if amd && on { 1 << 20 } else { 65_535 }
 }
 
+/// The clamp's HLSL as it is compiled: `source` with its two settings
+/// ([`widest`], [`rest`]) before it.
+pub(crate) fn clamp_source(source: &str, amd: bool) -> String {
+    format!("#define WIDEST {}u\n#define REST {}\n{source}", widest(amd), rest())
+}
+
 /// Whether `device` is an AMD card's.
+/// DXGI's vendor ID on Windows; under Wine the card's own, which DXVK hides
+/// without NVAPI; `VICTORY_GPU_VENDOR` overrides (`crate::vendor`).
 pub(crate) fn amd(device: &ID3D12Device) -> bool {
-    use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory2, DXGI_CREATE_FACTORY_FLAGS, IDXGIAdapter1, IDXGIFactory4};
-    // SAFETY: plain queries.
-    unsafe {
-        CreateDXGIFactory2::<IDXGIFactory4>(DXGI_CREATE_FACTORY_FLAGS(0))
-            .and_then(|f| f.EnumAdapterByLuid::<IDXGIAdapter1>(device.GetAdapterLuid()))
-            .and_then(|a| a.GetDesc1())
-            .is_ok_and(|d| d.VendorId == 0x1002)
-    }
+    crate::vendor::of(device) == crate::vendor::Vendor::Amd
 }
 
 /// Whether a record that does not fit in what is left of its list's budget
@@ -307,7 +308,7 @@ fn rest() -> u32 {
 fn make_from(device: &ID3D12Device, source: &str) -> windows::core::Result<Clamp> {
     #[cfg(feature = "diagnostics")]
     let batched = source == batch::SOURCE;
-    let source = &format!("#define WIDEST {}u\n#define REST {}\n{source}", widest(amd(device)), rest());
+    let source = &clamp_source(source, amd(device));
     let mut code: Option<ID3DBlob> = None;
     let mut errors: Option<ID3DBlob> = None;
     // SAFETY: the source and names live through the call; out pointers ours.
@@ -344,7 +345,7 @@ fn make_from(device: &ID3D12Device, source: &str) -> windows::core::Result<Clamp
     unsafe {
         let bytes =
             std::slice::from_raw_parts(code.GetBufferPointer().cast::<u8>(), code.GetBufferSize());
-        let root: ID3D12RootSignature = device.CreateRootSignature(0, bytes)?;
+        let root: ID3D12RootSignature = crate::rootsig::create(device, bytes, source)?;
         let pso = device.CreateComputePipelineState(&D3D12_COMPUTE_PIPELINE_STATE_DESC {
             pRootSignature: std::mem::transmute_copy(&root),
             CS: D3D12_SHADER_BYTECODE {

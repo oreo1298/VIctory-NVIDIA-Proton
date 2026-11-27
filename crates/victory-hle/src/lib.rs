@@ -29,6 +29,12 @@ pub use victory_gpu::console;
 pub use victory_gpu::streamline;
 #[cfg(windows)]
 pub use victory_gpu::reserve_upload_space;
+/// Wine and Proton: what a run says of the Wine it runs on.
+#[cfg(windows)]
+pub use victory_gpu::proton;
+/// `victory hlsl-check`.
+#[cfg(windows)]
+pub use victory_gpu::hlsl_check;
 #[cfg(all(windows, feature = "diagnostics"))]
 pub use victory_gpu::replay;
 

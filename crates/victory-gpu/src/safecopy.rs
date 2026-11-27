@@ -383,6 +383,14 @@ pub(crate) fn on() -> bool {
         let on = std::env::var_os("VICTORY_SAFE_COPY").is_none_or(|v| v != "0");
         if on {
             crate::watch::install();
+        } else if victory_core::wine::is_wine() {
+            // Wine's NtWriteVirtualMemory is a wineserver request for every
+            // call, even into this process, written through /proc/pid/mem
+            // past page protections (docs/proton-audit.md L13).
+            tracing::warn!(
+                "VICTORY_SAFE_COPY=0 under Wine: every copy into title memory is a wineserver round trip and \
+                 ignores page protections; leave it unset"
+            );
         }
         on
     })

@@ -38,7 +38,7 @@ pub(crate) fn on() -> bool {
 /// be alike) and `new` (what the title has there now). Where the two are
 /// equal and the card's word is another one, it is counted, and the first
 /// found is kept: its offset, the card's value, the CPU's.
-const SOURCE: &str = r#"
+pub(crate) const SOURCE: &str = r#"
 #define RS "RootConstants(num32BitConstants=5, b0), SRV(t0), SRV(t1), UAV(u0)"
 cbuffer Look : register(b0) { uint at; uint words; uint was; uint now; uint found_at; };
 ByteAddressBuffer card : register(t0);
@@ -72,7 +72,7 @@ fn pass(host: &Host) -> Option<&'static Pass> {
         // SAFETY: the code lives through the calls; the root signature is
         // inside it.
         unsafe {
-            let root: ID3D12RootSignature = host.device.CreateRootSignature(0, &code).ok()?;
+            let root: ID3D12RootSignature = crate::rootsig::create(&host.device, &code, SOURCE).ok()?;
             let pso: ID3D12PipelineState = host
                 .device
                 .CreateComputePipelineState(&D3D12_COMPUTE_PIPELINE_STATE_DESC {

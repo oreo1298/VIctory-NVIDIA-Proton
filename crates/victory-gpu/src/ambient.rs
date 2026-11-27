@@ -206,7 +206,7 @@ fn shade() -> [f32; 2] {
     })
 }
 
-const SOURCE: &str = r#"
+pub(crate) const SOURCE: &str = r#"
 #define RS "RootConstants(num32BitConstants=12, b0), DescriptorTable(SRV(t0)), DescriptorTable(UAV(u0)), UAV(u1), UAV(u2)"
 #define CX 64
 #define CY 36
@@ -522,7 +522,7 @@ fn make(device: &ID3D12Device, buffer: impl Fn(u64) -> Option<ID3D12Resource>) -
         // SAFETY: the root signature is inside the shader; plain creations.
         unsafe {
             if root.is_none() {
-                root = Some(device.CreateRootSignature(0, &code)?);
+                root = Some(crate::rootsig::create(device, &code, SOURCE)?);
             }
             let desc = D3D12_COMPUTE_PIPELINE_STATE_DESC {
                 pRootSignature: std::mem::transmute_copy(&root),

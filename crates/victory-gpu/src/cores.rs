@@ -106,6 +106,9 @@ fn ask(what: &str, from: u32) {
     let ok = unsafe { SetThreadSelectedCpuSets(GetCurrentThread(), fast.as_ptr(), fast.len() as u32) };
     if ok == 0 {
         tracing::warn!(what, error = %std::io::Error::last_os_error(), "the thread could not be kept on the fast cores");
+    } else if victory_core::wine::is_wine() {
+        // Wine's SetThreadSelectedCpuSets is a stub that succeeds.
+        tracing::info!(what, fast = fast.len(), of, "fast cores asked for; under Wine the request does nothing (taskset does)");
     } else {
         tracing::info!(what, fast = fast.len(), of, "the thread is kept on the fast cores (VICTORY_FAST_CORES=0: not)");
     }

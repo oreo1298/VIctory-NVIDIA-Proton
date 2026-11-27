@@ -1401,12 +1401,12 @@ struct TwinUse {
 /// the host turns the same float into the same 24 bits. The step divided
 /// by 65535 is another float for 512 of the 65,536 steps (none under 257),
 /// and lands in another 24-bit step for 127 of them (none under 385).
-const PLANE_CORNERS: &str = r#"
+pub(crate) const PLANE_CORNERS: &str = r#"
 float4 corner(uint i : SV_VertexID) : SV_Position {
     return float4(float(i & 1) * 4.0 - 1.0, float(i >> 1) * 4.0 - 1.0, 0.0, 1.0);
 }
 "#;
-const PLANE_STEPS: &str = r#"
+pub(crate) const PLANE_STEPS: &str = r#"
 #define RS "DescriptorTable(SRV(t0), visibility = SHADER_VISIBILITY_PIXEL)"
 Texture2DArray<uint> twin : register(t0);
 [RootSignature(RS)]
@@ -1414,7 +1414,7 @@ float plane(float4 p : SV_Position) : SV_Depth {
     return float(twin.Load(int4(int2(p.xy), 0, 0))) * asfloat(0x37800080);
 }
 "#;
-const PLANE_FLOATS: &str = r#"
+pub(crate) const PLANE_FLOATS: &str = r#"
 #define RS "DescriptorTable(SRV(t0), visibility = SHADER_VISIBILITY_PIXEL)"
 Texture2DArray<float> twin : register(t0);
 [RootSignature(RS)]
@@ -1563,7 +1563,7 @@ impl PlanePass {
         // SAFETY: the root signature is inside the pixel shader; the
         // description points at live data and never releases its pointer.
         unsafe {
-            let root: ID3D12RootSignature = device.CreateRootSignature(0, &ps[..])?;
+            let root: ID3D12RootSignature = crate::rootsig::create(device, &ps[..], source)?;
             let desc = D3D12_GRAPHICS_PIPELINE_STATE_DESC {
                 pRootSignature: std::mem::transmute_copy(&root),
                 VS: code(&vs[..]),
@@ -3857,7 +3857,7 @@ mod font;
 mod menu;
 mod panel;
 mod place;
-mod send;
+pub(crate) mod send;
 pub(crate) use send::{goes_as_words, words_under};
 #[cfg(feature = "diagnostics")]
 pub(crate) mod spans;
@@ -4386,7 +4386,7 @@ impl Host {
         // shader.
         unsafe {
             let bytes = std::slice::from_raw_parts(code.GetBufferPointer().cast::<u8>(), code.GetBufferSize());
-            let root: ID3D12RootSignature = self.device.CreateRootSignature(0, bytes)?;
+            let root: ID3D12RootSignature = crate::rootsig::create(&self.device, bytes, CARD_COMPARE)?;
             let pso: ID3D12PipelineState = self.device.CreateComputePipelineState(&D3D12_COMPUTE_PIPELINE_STATE_DESC {
                 pRootSignature: std::mem::transmute_copy(&root),
                 CS: D3D12_SHADER_BYTECODE {
