@@ -400,7 +400,41 @@ enum Console {
     SeriesS,
 }
 
+/// `VICTORY_OUTPUT_FILE=<path>`: everything this program prints, its log
+/// lines included, is added to that file instead of going to the console
+/// (and so is what the processes it starts print). Under Proton the program's
+/// console output reaches no terminal, so scripts/play-nvidia.sh names its log
+/// here and shows that file as it grows. Unset: the console, as before.
+#[cfg(windows)]
+fn output_to_file() {
+    use std::os::windows::io::IntoRawHandle;
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn SetStdHandle(which: u32, handle: *mut std::ffi::c_void) -> i32;
+    }
+    const STD_OUTPUT_HANDLE: u32 = -11i32 as u32;
+    const STD_ERROR_HANDLE: u32 = -12i32 as u32;
+    let Some(path) = std::env::var_os("VICTORY_OUTPUT_FILE").filter(|p| !p.is_empty()) else {
+        return;
+    };
+    match std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        Ok(file) => {
+            // Kept open for the life of the process.
+            let handle = file.into_raw_handle();
+            // SAFETY: a file handle of ours, open for writing, never closed.
+            unsafe {
+                SetStdHandle(STD_OUTPUT_HANDLE, handle);
+                SetStdHandle(STD_ERROR_HANDLE, handle);
+            }
+        }
+        Err(e) => eprintln!("VICTORY_OUTPUT_FILE: {} not opened ({e}); output stays on the console", std::path::Path::new(&path).display()),
+    }
+}
+
 fn main() -> Result<()> {
+    // First: before anything is printed.
+    #[cfg(windows)]
+    output_to_file();
     #[cfg(windows)]
     match_d3d12_core();
     // Before anything else can take the address space it needs.

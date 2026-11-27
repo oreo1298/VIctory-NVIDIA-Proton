@@ -68,7 +68,8 @@ It builds and its CPU-only commands run under Wine, but it is not the supported 
    export VICTORY_STREAMLINE_DIR=$HOME/sdk/streamline-sdk-v2.14.16/bin/x64
    ```
 
-   Or unpack the archive anywhere under `nvidia-sdk/` in the repository folder (git-ignored).
+   Or unpack the archive anywhere under `nvidia-sdk/` in the repository folder (git-ignored;
+   `unzip -q streamline-sdk-v2.14.16.zip -d nvidia-sdk`).
    The launcher finds `bin/x64/sl.interposer.dll` there by itself, skipping the SDK's
    development build. DLSS under Proton needs NVAPI, which the launcher turns on.
 3. **Check the helper shaders once per Proton version:**
@@ -182,10 +183,10 @@ or, from Steam, `steamapps/compatdata/<id>/pfx`. `%LOCALAPPDATA%` there is
 |---|---|
 | Translated shaders, pipeline book and library | `<prefix>/drive_c/users/steamuser/AppData/Local/victory/cache` |
 | Saves | `.../AppData/Local/victory/data` |
-| Crash log | `.../AppData/Local/VIctory/data/7952987A/crashes.log` (and `temp/` beside it) |
+| Crash log | `.../AppData/Local/victory/data/7952987A/crashes.log` (and `temp/*.crash.log` beside it; the folder name is lower case) |
 | vkd3d-proton's cache | `~/.cache/victory/vkd3d-proton/vkd3d-proton.cache` |
 | NVIDIA's cache | `~/.cache/nvidia/GLCache` (or `__GL_SHADER_DISK_CACHE_PATH`) |
-| Launcher logs (and `--debug` logs) | `~/.local/state/victory/logs` |
+| The game's log (`victory-nvidia-*.log`), Proton's output (`proton-*.log`), `--debug` logs | `~/.local/state/victory/logs` |
 | F1 menu settings | `victory-settings.txt` in the repository folder (git-ignored) |
 
 ## Helper shaders and d3dcompiler_47
@@ -237,11 +238,13 @@ Wine has two ways to provide it, and every run logs which one it got and what a 
 | Stutter in the first minutes of a new build | | `shaders` and `warm --used` (above) |
 | A 5 s pause when quitting | | expected: the exit watchdog ends the process when vkd3d-proton's threads do not detach |
 | The game does not start again after F1's SAVE AND RESTART | the launcher's window | only the launcher restarts it: start through `play-nvidia.sh` |
+| `Proton: Error: unable to use parent for game drive`, `pressure-vessel-wrap: W: Not sharing path ... /usr`, ProtonFixes' `fsr4` lines | `proton-*.log` | harmless: Proton's game-drive mapping, the Steam runtime not mounting `/usr` (proton-cachyos-slr lives there and still runs), and proton-cachyos fetching AMD's FSR 4 DLL into the prefix |
 
 When something fails, keep these:
 
-1. the launcher's log `~/.local/state/victory/logs/victory-nvidia-<date>-<time>.log`;
-2. the crash log `<prefix>/drive_c/users/steamuser/AppData/Local/VIctory/data/7952987A/crashes.log`,
+1. the game's log `~/.local/state/victory/logs/victory-nvidia-<date>-<time>.log`, and
+   `proton-<date>-<time>.log` beside it;
+2. the crash log `<prefix>/drive_c/users/steamuser/AppData/Local/victory/data/7952987A/crashes.log`,
    and the newest `.crash.log` in `temp/` beside it;
 3. with `--debug`: `vkd3d-proton-<date>-<time>.log`, `steam-*.log` (Proton), and DXVK's
    `victory_dxgi.log`, all in `~/.local/state/victory/logs`;
@@ -271,6 +274,7 @@ When something fails, keep these:
 | `VICTORY_PROTON=0\|1` | Proton paths off or on whatever the detection says (detection: ntdll's `wine_get_version`) |
 | `VICTORY_GPU_VENDOR=auto\|nvidia\|amd\|intel\|other` | the vendor the layer takes the card for; `auto` uses DXGI on Windows and the Vulkan device under Wine |
 | `VICTORY_WINE_TRUST_UNVERIFIED=1` | under Wine only, a DLL whose signature Wine cannot verify is loaded anyway, with a warning |
+| `VICTORY_OUTPUT_FILE=<path>` | everything `victory.exe` prints, its log included, goes to that file (under Proton the console reaches no terminal); set by `play-nvidia.sh`, which shows the file as it grows |
 | `VICTORY_RESTART_EXIT_CODE=<n>` | the F1 menu ends the run with exit code n (n+1: preload first) instead of starting PowerShell; set by `play-nvidia.sh` |
 
 ## What was tested, and what was not

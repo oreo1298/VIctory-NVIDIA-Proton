@@ -230,8 +230,8 @@ if [[ $dlss != off ]]; then
             ((framegen)) && s[VICTORY_TEXTURE_ROOM_PERCENT]=80 || s[VICTORY_TEXTURE_ROOM_PERCENT]=86
         fi
     else
-        say "No NVIDIA files in $sl: running without DLSS and frame generation. Unpack NVIDIA's Streamline SDK"
-        say "(github.com/NVIDIA-RTX/Streamline) and set VICTORY_STREAMLINE_DIR to its bin/x64 (docs/linux-proton.md)."
+        say "No NVIDIA files (sl.interposer.dll) under $repo/nvidia-sdk: running without DLSS and frame"
+        say "generation. Unpack NVIDIA's Streamline SDK there (README, Linux, step 7) or set VICTORY_STREAMLINE_DIR."
     fi
 fi
 # AMD FSR 3 frame generation: made ready as DLSS Frame Generation is. auto: the layer uses it only where DLSS
@@ -420,7 +420,13 @@ if ((${#steam[@]} == 0)) && inside_repo "$prefix"; then
     die "the prefix $prefix is inside the repository; use one outside it (--prefix)"
 fi
 
+# The game's own log: victory.exe writes everything it prints there (VICTORY_OUTPUT_FILE), since under Proton
+# its console output reaches no terminal; this script shows the file as it grows. Proton's and umu's own lines
+# go to a log of their own.
 log=$logs/victory-nvidia-$stamp.log
+proton_log=$logs/proton-$stamp.log
+[[ $command == winetricks ]] || export VICTORY_OUTPUT_FILE
+VICTORY_OUTPUT_FILE=$(dos "$log")
 switches=$(for k in "${!s[@]}"; do printf '%s=%s\n' "$k" "${s[$k]}"; done | sort | tr '\n' ' ')
 header="# console=$console build=$build preload=$preload smooth_motion=$smooth runner: $how switches: $switches"
 if ((dry_run)); then
@@ -436,13 +442,24 @@ fi
 mkdir -p "$logs"
 printf '%s\n' "$header" >"$log"
 say "Log: $log"
+say "Proton's own output: $proton_log"
 
 cd "$repo" # victory.toml is read from here
 run_victory() {
+    local shown=""
+    if [[ $command != winetricks ]]; then
+        tail -n 0 -F "$log" 2>/dev/null &
+        shown=$!
+    fi
     set +e
-    "${runner[@]}" "$@" 2>&1 | tee -a "$log"
+    "${runner[@]}" "$@" 2>&1 | tee -a "$proton_log"
     local rc=${PIPESTATUS[0]}
     set -e
+    if [[ -n $shown ]]; then
+        sleep 1 # the last lines
+        kill "$shown" 2>/dev/null || true
+        wait "$shown" 2>/dev/null || true
+    fi
     return "$rc"
 }
 if [[ $command != run ]]; then

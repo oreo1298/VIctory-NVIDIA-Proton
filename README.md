@@ -448,7 +448,7 @@ curl -L -o /tmp/streamline.zip https://github.com/NVIDIA-RTX/Streamline/releases
 ```
 
 ```bash
-unzip -q /tmp/streamline.zip -d nvidia-sdk/Streamline
+unzip -q /tmp/streamline.zip -d nvidia-sdk
 ```
 
 **8. Translate the shaders ahead** (a few minutes; again after every update). Put your own dump's
@@ -485,8 +485,15 @@ scripts/build-linux.sh
 
 **11. If something goes wrong,** attach these to the report:
 
-- the launcher's log, from `~/.local/state/victory/logs/` (the newest `victory-nvidia-*.log`);
-- the crash log, `~/.local/share/victory/proton/drive_c/users/steamuser/AppData/Local/VIctory/data/7952987A/crashes.log`;
+- the game's log: the newest `victory-nvidia-<date>-<time>.log` in `~/.local/state/victory/logs/`,
+  and the `proton-<date>-<time>.log` of the same time beside it (Proton's own lines);
+- the crash log, `crashes.log`, and the newest `.crash.log` from the `temp` folder beside it. This
+  lists both:
+
+```bash
+ls -t ~/.local/share/victory/proton/drive_c/users/steamuser/AppData/Local/victory/data/*/crashes.log ~/.local/share/victory/proton/drive_c/users/steamuser/AppData/Local/victory/data/*/temp/*.crash.log
+```
+
 - what `scripts/play-nvidia.sh hlsl-check` prints.
 
 Run with `--debug` for Proton's, vkd3d-proton's and DXVK's own logs (they go to the same

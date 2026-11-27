@@ -6,7 +6,9 @@
 //! logs info and above whatever the filter asks for.
 //!
 //! `VICTORY_LOG_FILE=<path>`: every line is added to that file too, without
-//! colours (`victory play` names one for each start).
+//! colours (`victory play` names one for each start). With
+//! `VICTORY_OUTPUT_FILE` (apps/victory, `main.rs`) the console stream itself
+//! goes to a file, and is written without colours too.
 
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::filter::LevelFilter;
@@ -59,6 +61,9 @@ pub fn init(default_level: &str) {
         .with(
             tracing_subscriber::fmt::layer()
                 .with_target(true)
+                // No colour codes in a file (`VICTORY_OUTPUT_FILE` sends this
+                // stream to one).
+                .with_ansi(std::env::var_os("VICTORY_OUTPUT_FILE").is_none_or(|v| v.is_empty()))
                 .with_writer(std::io::stderr),
         )
         .with(file)
