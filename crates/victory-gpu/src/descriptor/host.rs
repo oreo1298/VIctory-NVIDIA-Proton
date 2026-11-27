@@ -1912,8 +1912,15 @@ pub(crate) fn probe_view_limit() {
             RAW_TWINS
         } else if fits(UNCAPPED_VIEWS) {
             UNCAPPED_VIEWS
-        } else {
+        } else if !victory_core::wine::is_wine() || fits(PORTABLE_VIEWS) {
             PORTABLE_VIEWS
+        } else {
+            // vkd3d-proton takes its limit from the Vulkan driver's; where
+            // even D3D12's tier-2 1,000,000 does not fit, the largest heap
+            // that does (in steps of 2^16 views).
+            let most = (1..PORTABLE_VIEWS >> 16).rev().map(|k| k << 16).find(|&n| fits(n)).unwrap_or(1 << 16);
+            tracing::warn!(views = most, "the host refuses a view heap of 1,000,000 views; view heaps take the most it allows");
+            most
         };
         tracing::info!(
             views,

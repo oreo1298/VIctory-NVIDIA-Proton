@@ -387,7 +387,18 @@ fn log_file(logs: &Path) -> Result<PathBuf> {
 const LOG_PREFIX: &str = "victory-nvidia-play-";
 
 /// Runs the fetcher: NVIDIA's files from NVIDIA's GitHub into `to`.
+/// The fetchers are Windows PowerShell scripts; Wine has no PowerShell.
+fn no_powershell_under_wine(what: &str) -> Result<()> {
+    anyhow::ensure!(
+        !victory_core::wine::is_wine(),
+        "{what} is fetched with Windows PowerShell, which Wine and Proton do not have: fetch it on Windows, or as \
+         docs/linux-proton.md says (Set up)"
+    );
+    Ok(())
+}
+
 fn fetch(to: &Path) -> Result<()> {
+    no_powershell_under_wine("NVIDIA's Streamline")?;
     std::fs::create_dir_all(to).with_context(|| format!("creating {}", to.display()))?;
     let script = to.join("get-nvidia-sdks.ps1");
     std::fs::write(&script, FETCH).with_context(|| format!("writing {}", script.display()))?;
@@ -417,6 +428,10 @@ pub(crate) fn get_dlss() -> Result<()> {
 fn offer_dlss() {
     let Ok(to) = nvidia_home() else { return };
     let declined = to.join("declined");
+    if victory_core::wine::is_wine() {
+        println!("No NVIDIA files: running without DLSS and frame generation (docs/linux-proton.md, Set up, says how to add them).");
+        return;
+    }
     if declined.exists() || !std::io::stdin().is_terminal() {
         println!("No NVIDIA files: running without DLSS and frame generation (`victory get-dlss` fetches them).");
         return;
@@ -438,6 +453,7 @@ fn offer_dlss() {
 
 /// Runs the AMD fetcher: AMD's FSR 3 files from AMD's GitHub into `to`.
 fn fetch_fsr(to: &Path) -> Result<()> {
+    no_powershell_under_wine("AMD's FidelityFX")?;
     std::fs::create_dir_all(to).with_context(|| format!("creating {}", to.display()))?;
     let script = to.join("get-amd-fsr.ps1");
     std::fs::write(&script, FETCH_FSR).with_context(|| format!("writing {}", script.display()))?;
@@ -467,7 +483,7 @@ pub(crate) fn get_fsr() -> Result<()> {
 fn offer_fsr(card: &str) {
     let Ok(to) = amd_home() else { return };
     let declined = to.join("declined");
-    if declined.exists() || !std::io::stdin().is_terminal() {
+    if declined.exists() || !std::io::stdin().is_terminal() || victory_core::wine::is_wine() {
         println!("No AMD FSR 3 files: frame generation stays off on this card (`victory get-fsr` fetches them).");
         return;
     }
@@ -515,6 +531,7 @@ fn older_rtx(name: &str) -> bool {
 
 /// Runs the fetcher: MFG Unlocker from its author's GitHub release into `to`.
 fn fetch_mfg(to: &Path) -> Result<()> {
+    no_powershell_under_wine("MFG Unlocker")?;
     std::fs::create_dir_all(to).with_context(|| format!("creating {}", to.display()))?;
     let script = to.join("get-mfg-unlocker.ps1");
     std::fs::write(&script, FETCH_MFG).with_context(|| format!("writing {}", script.display()))?;
@@ -548,7 +565,7 @@ pub(crate) fn get_mfg() -> Result<()> {
 fn offer_mfg(card: &str, menu_file: &Path) -> bool {
     let Ok(to) = mfg_home() else { return false };
     let declined = to.join("declined");
-    if declined.exists() || !std::io::stdin().is_terminal() {
+    if declined.exists() || !std::io::stdin().is_terminal() || victory_core::wine::is_wine() {
         return false;
     }
     println!("This card ({card}) runs DLSS, but NVIDIA's DLSS frame generation only on RTX 40 and later.");
@@ -632,6 +649,7 @@ fn shader_model() -> Option<(u32, u32)> {
 
 /// Runs the fetcher: Microsoft's D3D12Core.dll from nuget.org into `to`.
 fn fetch_d3d12(to: &Path) -> Result<()> {
+    no_powershell_under_wine("Microsoft's Direct3D 12 runtime")?;
     std::fs::create_dir_all(to).with_context(|| format!("creating {} (beside victory.exe)", to.display()))?;
     let script = std::env::temp_dir().join(format!("victory-get-d3d12-{}.ps1", std::process::id()));
     std::fs::write(&script, FETCH_D3D12).with_context(|| format!("writing {}", script.display()))?;
@@ -670,6 +688,19 @@ pub(crate) fn get_d3d12() -> Result<()> {
 fn check_shader_model() -> Result<()> {
     let needed = victory_hle::streamline::SHADER_MODEL_NEEDED;
     let Some(found) = shader_model() else { return Ok(()) };
+    // Under Wine (Proton), Direct3D 12 is vkd3d-proton: Microsoft's runtime does
+    // not apply, Proton says it is Windows 10 whatever runs, and there is no
+    // PowerShell to fetch anything with. Only the shader model counts.
+    if victory_core::wine::is_wine() {
+        anyhow::ensure!(
+            found >= needed,
+            "Direct3D 12 here (vkd3d-proton) runs shader model {}.{}, and the game needs 6.6: update Proton \
+             (proton-cachyos, GE-Proton or Proton 10 or later) and the graphics driver",
+            found.0,
+            found.1
+        );
+        return Ok(());
+    }
     let to = d3d12_dir()?;
     let had = to.join("D3D12Core.dll").is_file();
     let windows_10 = !had && crate::windows_build().is_some_and(|build| build < 22000);

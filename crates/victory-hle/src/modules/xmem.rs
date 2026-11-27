@@ -34,17 +34,11 @@ use crate::{HleModule, hle_export};
 
 const MIB: usize = 1 << 20;
 
-/// Whether we run under Wine (its ntdll exports `wine_get_version`).
+/// Whether we run under Wine (its ntdll exports `wine_get_version`), or
+/// `VICTORY_PROTON` says to behave so: the one detection every Proton path
+/// asks (`victory_core::wine`).
 pub(crate) fn on_wine() -> bool {
-    static WINE: LazyLock<bool> = LazyLock::new(|| {
-        use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
-        // SAFETY: plain lookups in ntdll, always loaded.
-        unsafe {
-            let ntdll = GetModuleHandleA(c"ntdll.dll".as_ptr().cast());
-            !ntdll.is_null() && GetProcAddress(ntdll, c"wine_get_version".as_ptr().cast()).is_some()
-        }
-    });
-    *WINE
+    victory_core::wine::is_wine()
 }
 
 /// Standard memory the title has handed to the system.

@@ -328,6 +328,15 @@ enum Command {
     /// it by itself then.
     #[cfg(windows)]
     GetMfg,
+    /// Compile every helper shader of the runtime with the system's HLSL
+    /// compiler (under Wine/Proton, Wine's own) and say whether each compiles
+    /// and how its root signature is made. CPU only, unless --device.
+    #[cfg(windows)]
+    HlslCheck {
+        /// Also make each root signature on the host GPU's device.
+        #[arg(long)]
+        device: bool,
+    },
     /// Print the highest shader model the default GPU runs here (`play`
     /// asks it in a process of its own).
     #[cfg(windows)]
@@ -419,6 +428,7 @@ fn main() -> Result<()> {
                 play::preload(&ready.exe);
             }
             victory_core::logging::init("info");
+            victory_hle::proton::log_start();
             // F1's MFG UNLOCKER: the mod, before the layer makes its device or loads Streamline.
             play::load_mfg();
             let console = if ready.series_s { Console::SeriesS } else { Console::SeriesX };
@@ -433,6 +443,10 @@ fn main() -> Result<()> {
         return done;
     }
     victory_core::logging::init("info");
+    // Under Wine: which Wine, and what its write watching costs (a log line
+    // or two; nothing on Windows).
+    #[cfg(windows)]
+    victory_hle::proton::log_start();
     match cli.command {
         Command::Inspect {
             file,
@@ -491,6 +505,13 @@ fn main() -> Result<()> {
         Command::GetD3d12 => play::get_d3d12(),
         #[cfg(windows)]
         Command::GetMfg => play::get_mfg(),
+        #[cfg(windows)]
+        Command::HlslCheck { device } => {
+            for line in victory_hle::hlsl_check(device) {
+                println!("{line}");
+            }
+            Ok(())
+        }
         #[cfg(windows)]
         Command::ShaderModel => {
             let model = victory_hle::streamline::highest_shader_model();

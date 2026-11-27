@@ -60,7 +60,7 @@ pub(crate) fn words_under() -> bool {
     *ON.get_or_init(|| own() && std::env::var_os("VICTORY_UNDER_WORDS").is_none_or(|v| v != "0"))
 }
 
-const SCATTER: &str = r#"
+pub(crate) const SCATTER: &str = r#"
 #define RS "RootConstants(num32BitConstants=2, b0), SRV(t0), UAV(u0)"
 cbuffer Part : register(b0) { uint at; uint count; };
 ByteAddressBuffer pairs : register(t0);
@@ -86,7 +86,7 @@ fn pass(host: &Host) -> Option<&'static Pass> {
         // SAFETY: the code lives through the calls; the root signature is
         // inside it.
         unsafe {
-            let root: ID3D12RootSignature = host.device.CreateRootSignature(0, &code).ok()?;
+            let root: ID3D12RootSignature = crate::rootsig::create(&host.device, &code, SCATTER).ok()?;
             let pso: ID3D12PipelineState = host
                 .device
                 .CreateComputePipelineState(&D3D12_COMPUTE_PIPELINE_STATE_DESC {

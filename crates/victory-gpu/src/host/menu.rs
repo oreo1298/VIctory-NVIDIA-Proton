@@ -494,6 +494,20 @@ impl Menu {
     /// Starts the launcher again in a new console, a few seconds on, and ends this run.
     /// `preload`: the launcher makes every shader first (`VICTORY_PRELOAD=1`, for that start alone).
     fn restart(&mut self, preload: bool) {
+        // `VICTORY_RESTART_EXIT_CODE=<n>` (scripts/play-nvidia.sh sets it; Wine
+        // has no PowerShell to start a launcher with): this run ends with exit
+        // code n, or n + 1 to preload first, and the launcher that waits for
+        // it starts the game again. Unset: as below.
+        if let Some(code) = std::env::var("VICTORY_RESTART_EXIT_CODE").ok().and_then(|v| v.trim().parse::<u32>().ok()) {
+            let code = code + u32::from(preload);
+            tracing::info!(code, preload, "settings menu: ending this run for the launcher to start it again");
+            // SAFETY: this process, with nothing of its own left to save (as below).
+            unsafe {
+                use windows_sys::Win32::System::Threading::{GetCurrentProcess, TerminateProcess};
+                TerminateProcess(GetCurrentProcess(), code);
+            }
+            std::process::exit(code as i32);
+        }
         let Some(play) = std::env::var_os("VICTORY_MENU_PLAY") else {
             self.note = "SAVED. START THE LAUNCHER AGAIN YOURSELF".to_owned();
             return;

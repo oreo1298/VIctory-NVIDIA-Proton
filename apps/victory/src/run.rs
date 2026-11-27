@@ -52,6 +52,8 @@ pub fn run(
 
     if execute {
         check_cpu_features()?;
+        // Under Wine: warns before Linux's limit on mappings is reached.
+        victory_hle::proton::watch_map_count();
     }
     // A title that relaunched itself: the old process must be gone first.
     victory_hle::modules::lifecycle::wait_for_previous();

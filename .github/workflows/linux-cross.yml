@@ -1,0 +1,43 @@
+# Builds the Windows victory.exe on Linux (cargo-xwin, the MSVC target), as scripts/build-linux.sh does for
+# Proton users, and checks the Linux scripts with shellcheck. The Windows jobs in ci.yml are the reference.
+name: Linux cross-build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-cross-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cross:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tools (clang, lld, shellcheck)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang lld llvm shellcheck
+      # The version, target and components pinned in rust-toolchain.toml.
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo-xwin
+        run: cargo install cargo-xwin --locked
+      # Microsoft's CRT and Windows SDK libraries, which cargo-xwin downloads on the first build.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/cargo-xwin
+          key: cargo-xwin-${{ runner.os }}-v1
+      - name: shellcheck
+        run: shellcheck -x scripts/play-nvidia.sh scripts/build-linux.sh
+      - name: Cross-build victory.exe (release)
+        run: scripts/build-linux.sh release
+      - name: Tests that run on Linux (configuration, Wine paths)
+        run: cargo test --locked -p victory-core

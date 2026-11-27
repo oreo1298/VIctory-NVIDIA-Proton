@@ -13,8 +13,10 @@ pub const ROOT_MARKER: &str = ".victory-root";
 
 /// The source tree this binary was compiled from.
 fn compiled_workspace_root() -> PathBuf {
-    // crates/victory-core -> workspace root
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
+    // crates/victory-core -> workspace root. Built on Linux (cross-compiled)
+    // and run under Wine, this is a Unix path: its `Z:` form names it from
+    // any current drive.
+    crate::wine::windows_path(Path::new(env!("CARGO_MANIFEST_DIR"))).join("..").join("..")
 }
 
 #[derive(Debug, thiserror::Error)]

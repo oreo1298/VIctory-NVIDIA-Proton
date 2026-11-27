@@ -725,6 +725,14 @@ pub fn load_mod(what: &str, path: &Path) -> Result<(), u32> {
     }
 }
 
+/// `VICTORY_WINE_TRUST_UNVERIFIED=1`: under Wine only, a DLL whose signature
+/// Wine cannot verify (its chain is built from the Linux host's certificates)
+/// is loaded anyway, with a warning each time. Off unless set; ignored on
+/// Windows.
+fn wine_trusts_unverified() -> bool {
+    std::env::var_os("VICTORY_WINE_TRUST_UNVERIFIED").is_some_and(|v| v == "1")
+}
+
 /// The Authenticode signature of `path` (NVIDIA signs its DLLs), checked
 /// without going online.
 fn verify_signature(path: &Path) -> Result<(), String> {
@@ -754,6 +762,20 @@ fn verify_signature(path: &Path) -> Result<(), String> {
     unsafe { WinVerifyTrust(std::ptr::null_mut(), &mut action, (&raw mut data).cast()) };
     if code == 0 {
         Ok(())
+    } else if victory_core::wine::is_wine() && wine_trusts_unverified() {
+        tracing::warn!(
+            dll = %path.display(),
+            code = format_args!("{:#x}", code as u32),
+            "Wine could not verify the signature; loaded anyway because VICTORY_WINE_TRUST_UNVERIFIED=1"
+        );
+        Ok(())
+    } else if victory_core::wine::is_wine() {
+        Err(format!(
+            "{} is not validly signed as Wine checks it ({:#x}). Wine's signature checks are less complete than \
+             Windows'; if this is NVIDIA's or AMD's own file, VICTORY_WINE_TRUST_UNVERIFIED=1 loads it anyway",
+            path.display(),
+            code as u32
+        ))
     } else {
         Err(format!("{} is not validly signed ({:#x})", path.display(), code as u32))
     }

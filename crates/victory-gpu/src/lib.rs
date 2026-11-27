@@ -100,6 +100,14 @@ pub mod timeline;
 pub mod titlewrite;
 #[cfg(windows)]
 mod upload;
+/// Wine and Proton: what a run says of the Wine it runs on.
+#[cfg(windows)]
+pub mod proton;
+/// Helper shaders' root signatures when the HLSL compiler leaves them out.
+mod rootsig;
+/// The host card's vendor (`VICTORY_GPU_VENDOR`).
+#[cfg(windows)]
+pub mod vendor;
 #[cfg(windows)]
 mod watch;
 #[cfg(windows)]
@@ -111,6 +119,14 @@ pub use host::on_failure;
 /// first thing, before the process's other allocations can fill [4 GiB, 2^37).
 #[cfg(windows)]
 pub use upload::reserve_space as reserve_upload_space;
+
+/// `victory hlsl-check`: every helper shader through the system's HLSL
+/// compiler, and whether its root signature can be made (with `device`, on
+/// the host device). One line each.
+#[cfg(windows)]
+pub fn hlsl_check(device: bool) -> Vec<String> {
+    rootsig::check(device)
+}
 
 /// Whether `switch` is on now, if it is one of those `VICTORY_AB` turns on and
 /// off while the title runs (`ab`).

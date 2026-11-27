@@ -10,7 +10,7 @@ use windows::core::{PCSTR, s};
 
 use crate::host::Host;
 
-const SOURCE: &str = r#"
+pub(crate) const SOURCE: &str = r#"
 #define RS "DescriptorTable(SRV(t0, numDescriptors=2), visibility=SHADER_VISIBILITY_PIXEL), StaticSampler(s0, filter=FILTER_MIN_MAG_MIP_LINEAR, addressU=TEXTURE_ADDRESS_CLAMP, addressV=TEXTURE_ADDRESS_CLAMP)"
 Texture2D<float4> scene : register(t0);
 Texture2D<float4> over : register(t1);
@@ -76,7 +76,7 @@ impl Composer {
                 std::slice::from_raw_parts(b.GetBufferPointer().cast::<u8>(), b.GetBufferSize())
             };
             let device = &host.device;
-            let root: ID3D12RootSignature = device.CreateRootSignature(0, bytes(&vs))?;
+            let root: ID3D12RootSignature = crate::rootsig::create(device, bytes(&vs), SOURCE)?;
             let code = |b: &ID3DBlob| D3D12_SHADER_BYTECODE {
                 pShaderBytecode: b.GetBufferPointer(),
                 BytecodeLength: b.GetBufferSize(),
